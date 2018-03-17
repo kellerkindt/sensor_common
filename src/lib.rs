@@ -10,7 +10,7 @@ pub enum Error {
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Request {
-    ReadSingle(u8),
+    ReadSpecified(u8, Bus),
     ReadAll(u8),
     ReadAllOnBus(u8, Bus),
     DiscoverAll(u8),
@@ -20,7 +20,7 @@ pub enum Request {
 impl Request {
     pub fn id(&self) -> u8 {
         match self {
-            &Request::ReadSingle(id) => id,
+            &Request::ReadSpecified(id, _) => id,
             &Request::ReadAll(id) => id,
             &Request::ReadAllOnBus(id, _) => id,
             &Request::DiscoverAll(id) => id,
@@ -30,9 +30,10 @@ impl Request {
 
     pub fn write(&self, writer: &mut Write) -> Result<usize, Error> {
         Ok(match *self {
-            Request::ReadSingle(id) => {
+            Request::ReadSpecified(id, bus) => {
                 writer.write_u8(0x00)?
                     + writer.write_u8(id)?
+                    + bus.write(writer)?
             },
             Request::ReadAll(id) => {
                 writer.write_u8(0x01)?
@@ -57,7 +58,7 @@ impl Request {
 
     pub fn read(reader: &mut Read) -> Result<Request, Error> {
         Ok(match reader.read_u8()? {
-            0x00 => Request::ReadSingle(reader.read_u8()?),
+            0x00 => Request::ReadSpecified(reader.read_u8()?, Bus::read(reader)?),
             0x01 => Request::ReadAll(reader.read_u8()?),
             0x02 => Request::ReadAllOnBus(reader.read_u8()?, Bus::read(reader)?),
             0x10 => Request::DiscoverAll(reader.read_u8()?),
