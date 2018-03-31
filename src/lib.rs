@@ -18,6 +18,9 @@ pub enum Request {
 
     RetrieveNetworkConfiguration(u8),
     RetrieveVersionInformation(u8),
+
+    SetNetworkMac(u8, [u8; 6]),
+    SetNetworkIpSubnetGateway(u8, [u8; 4], [u8; 4], [u8; 4]),
 }
 
 impl Request {
@@ -30,6 +33,8 @@ impl Request {
             &Request::DiscoverAllOnBus(id, _) => id,
             &Request::RetrieveNetworkConfiguration(id) => id,
             &Request::RetrieveVersionInformation(id) => id,
+            &Request::SetNetworkMac(id, _) => id,
+            &Request::SetNetworkIpSubnetGateway(id, _, _, _) => id,
         }
     }
 
@@ -59,6 +64,20 @@ impl Request {
                     + bus.write(writer)?
             },
 
+
+            Request::SetNetworkMac(id, mac) => {
+                writer.write_u8(0xA0)?
+                    + writer.write_u8(id)?
+                    + writer.write_all(&mac)?
+            },
+            Request::SetNetworkIpSubnetGateway(id, ip, subnet, gateway) => {
+                writer.write_u8(0xA1)?
+                    + writer.write_u8(id)?
+                    + writer.write_all(&ip)?
+                    + writer.write_all(&subnet)?
+                    + writer.write_all(&gateway)?
+            },
+
             Request::RetrieveNetworkConfiguration(id) => {
                 writer.write_u8(0xFE)?
                     + writer.write_u8(id)?
@@ -66,7 +85,7 @@ impl Request {
             Request::RetrieveVersionInformation(id) => {
                 writer.write_u8(0xFF)?
                     + writer.write_u8(id)?
-            }
+            },
         })
     }
 
@@ -77,6 +96,18 @@ impl Request {
             0x02 => Request::ReadAllOnBus(reader.read_u8()?, Bus::read(reader)?),
             0x10 => Request::DiscoverAll(reader.read_u8()?),
             0x11 => Request::DiscoverAllOnBus(reader.read_u8()?, Bus::read(reader)?),
+
+            0xA0 => Request::SetNetworkMac(reader.read_u8()?, [
+                reader.read_u8()?, reader.read_u8()?, reader.read_u8()?,
+                reader.read_u8()?, reader.read_u8()?, reader.read_u8()?,
+            ]),
+            0xA1 => Request::SetNetworkIpSubnetGateway(reader.read_u8()?, [
+               reader.read_u8()?, reader.read_u8()?, reader.read_u8()?, reader.read_u8()?,
+            ], [
+                reader.read_u8()?, reader.read_u8()?, reader.read_u8()?, reader.read_u8()?,
+            ], [
+                reader.read_u8()?, reader.read_u8()?, reader.read_u8()?, reader.read_u8()?,
+            ]),
 
             0xFE => Request::RetrieveNetworkConfiguration(reader.read_u8()?),
             0xFF => Request::RetrieveVersionInformation(reader.read_u8()?),
@@ -144,6 +175,7 @@ impl Response {
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Format {
+    Empty,
     ValueOnly(Type),
     AddressOnly(Type),
     AddressValuePairs(Type, Type)
@@ -165,6 +197,9 @@ impl Format {
                     + t1.write(writer)?
                     + t2.write(writer)?
             },
+            &Format::Empty => {
+                writer.write_u8(0xFF)?
+            },
         })
     }
 
@@ -173,6 +208,7 @@ impl Format {
             0x00 => Format::ValueOnly(Type::read(reader)?),
             0x01 => Format::AddressOnly(Type::read(reader)?),
             0x02 => Format::AddressValuePairs(Type::read(reader)?, Type::read(reader)?),
+            0xFF => Format::Empty,
             _ => return Err(Error::UnknownTypeIdentifier)
         })
     }
