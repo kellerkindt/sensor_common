@@ -152,7 +152,10 @@ pub enum Format {
 impl Format {
     pub fn write(&self, writer: &mut Write) -> Result<usize, Error> {
         Ok(match self {
-            &Format::ValueOnly(t) => writer.write_u8(0x00)?,
+            &Format::ValueOnly(t) => {
+                writer.write_u8(0x00)?
+                    + t.write(writer)?
+            },
             &Format::AddressOnly(t) => {
                 writer.write_u8(0x01)?
                     + t.write(writer)?
@@ -169,9 +172,7 @@ impl Format {
         Ok(match reader.read_u8()? {
             0x00 => Format::ValueOnly(Type::read(reader)?),
             0x01 => Format::AddressOnly(Type::read(reader)?),
-            0x02 => {
-                Format::AddressValuePairs(Type::read(reader)?, Type::read(reader)?)
-            },
+            0x02 => Format::AddressValuePairs(Type::read(reader)?, Type::read(reader)?),
             _ => return Err(Error::UnknownTypeIdentifier)
         })
     }
