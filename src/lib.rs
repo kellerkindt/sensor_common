@@ -15,6 +15,9 @@ pub enum Request {
     ReadAllOnBus(u8, Bus),
     DiscoverAll(u8),
     DiscoverAllOnBus(u8, Bus),
+
+    RetrieveNetworkConfiguration(u8),
+    RetrieveVersionInformation(u8),
 }
 
 impl Request {
@@ -25,6 +28,8 @@ impl Request {
             &Request::ReadAllOnBus(id, _) => id,
             &Request::DiscoverAll(id) => id,
             &Request::DiscoverAllOnBus(id, _) => id,
+            &Request::RetrieveNetworkConfiguration(id) => id,
+            &Request::RetrieveVersionInformation(id) => id,
         }
     }
 
@@ -52,6 +57,15 @@ impl Request {
                 writer.write_u8(0x11)?
                     + writer.write_u8(id)?
                     + bus.write(writer)?
+            },
+
+            Request::RetrieveNetworkConfiguration(id) => {
+                writer.write_u8(0xFE)?
+                    + writer.write_u8(id)?
+            },
+            Request::RetrieveVersionInformation(id) => {
+                writer.write_u8(0xFF)?
+                    + writer.write_u8(id)?
             }
         })
     }
@@ -63,6 +77,9 @@ impl Request {
             0x02 => Request::ReadAllOnBus(reader.read_u8()?, Bus::read(reader)?),
             0x10 => Request::DiscoverAll(reader.read_u8()?),
             0x11 => Request::DiscoverAllOnBus(reader.read_u8()?, Bus::read(reader)?),
+
+            0xFE => Request::RetrieveNetworkConfiguration(reader.read_u8()?),
+            0xFF => Request::RetrieveVersionInformation(reader.read_u8()?),
             _ => return Err(Error::UnknownTypeIdentifier)
         })
     }
@@ -164,28 +181,30 @@ impl Format {
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Type {
     F32,
-    Array(u8),
+    Bytes(u8),
+    String(u8),
 }
 
 impl Type {
     pub fn write(&self, writer: &mut Write) -> Result<usize, Error> {
         Ok(match self {
             &Type::F32 => writer.write_u8(0x00)?,
-            &Type::Array(size) => {
+            &Type::Bytes(size) => {
                 writer.write_u8(0x01)?
                     + writer.write_u8(size)?
             },
+            &Type::String(size) => {
+                writer.write_u8(0x02)?
+                    + writer.write_u8(size)?
+            }
         })
     }
 
     pub fn read(reader: &mut Read) -> Result<Type, Error> {
         Ok(match reader.read_u8()? {
-            0x00 => {
-                Type::F32
-            },
-            0x01 => {
-                Type::Array(reader.read_u8()?)
-            },
+            0x00 => Type::F32,
+            0x01 => Type::Bytes(reader.read_u8()?),
+            0x02 => Type::String(reader.read_u8()?),
             _ => return Err(Error::UnknownTypeIdentifier)
         })
     }
