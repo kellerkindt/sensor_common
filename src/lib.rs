@@ -16,6 +16,7 @@ pub enum Request {
     DiscoverAll(u8),
     DiscoverAllOnBus(u8, Bus),
 
+    RetrieveDeviceInformation(u8),
     RetrieveNetworkConfiguration(u8),
     RetrieveVersionInformation(u8),
 
@@ -31,6 +32,7 @@ impl Request {
             &Request::ReadAllOnBus(id, _) => id,
             &Request::DiscoverAll(id) => id,
             &Request::DiscoverAllOnBus(id, _) => id,
+            &Request::RetrieveDeviceInformation(id) => id,
             &Request::RetrieveNetworkConfiguration(id) => id,
             &Request::RetrieveVersionInformation(id) => id,
             &Request::SetNetworkMac(id, _) => id,
@@ -78,6 +80,10 @@ impl Request {
                     + writer.write_all(&gateway)?
             },
 
+            Request::RetrieveDeviceInformation(id) => {
+                writer.write_u8(0xFD)?
+                    + writer.write_u8(id)?
+            },
             Request::RetrieveNetworkConfiguration(id) => {
                 writer.write_u8(0xFE)?
                     + writer.write_u8(id)?
@@ -109,6 +115,7 @@ impl Request {
                 reader.read_u8()?, reader.read_u8()?, reader.read_u8()?, reader.read_u8()?,
             ]),
 
+            0xFD => Request::RetrieveDeviceInformation(reader.read_u8()?),
             0xFE => Request::RetrieveNetworkConfiguration(reader.read_u8()?),
             0xFF => Request::RetrieveVersionInformation(reader.read_u8()?),
             _ => return Err(Error::UnknownTypeIdentifier)
