@@ -126,12 +126,14 @@ impl Request {
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Bus {
     OneWire,
+    Custom(u8),
 }
 
 impl Bus {
     pub fn write(&self, writer: &mut Write) -> Result<usize, Error> {
         Ok(match self {
             &Bus::OneWire => writer.write_u8(0x00)?,
+            &Bus::Custom(id) => writer.write_u8(0xFF)? + writer.write_u8(id)?,
             _ => return Err(Error::UnknownTypeIdentifier),
         })
     }
@@ -139,6 +141,7 @@ impl Bus {
     pub fn read(reader: &mut Read) -> Result<Bus, Error> {
         Ok(match reader.read_u8()? {
             0x00 => Bus::OneWire,
+            0xFF => Bus::Custom(reader.read_u8()?),
             _ => return Err(Error::UnknownTypeIdentifier),
         })
     }
