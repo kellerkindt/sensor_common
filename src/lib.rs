@@ -134,7 +134,6 @@ impl Bus {
         Ok(match self {
             &Bus::OneWire => writer.write_u8(0x00)?,
             &Bus::Custom(id) => writer.write_u8(0xFF)? + writer.write_u8(id)?,
-            _ => return Err(Error::UnknownTypeIdentifier),
         })
     }
 
@@ -155,6 +154,14 @@ pub enum Response {
 }
 
 impl Response {
+    pub fn id(&self) -> u8 {
+        match self {
+            Response::NotImplemented(id) => *id,
+            Response::NotAvailable(id) => *id,
+            Response::Ok(id, _) => *id,
+        }
+    }
+
     pub fn write(&self, writer: &mut Write) -> Result<usize, Error> {
         Ok(match self {
             &Response::NotImplemented(id) => {
