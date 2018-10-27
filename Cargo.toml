@@ -6,7 +6,7 @@ description = "Library to communicate with embedded sensors (over ethernet)"
 keywords = ["ethernet"]
 categories = ["embedded", "no-std"]
 license = "MIT OR Apache-2.0"
-repository = "https://git.tallbyte.com/rust/sensor_common"
+repository = "https://github.com/kellerkindt/sensor_common"
 
 
 [dependencies]
