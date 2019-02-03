@@ -7,7 +7,6 @@ pub enum Error {
     UnknownTypeIdentifier,
 }
 
-
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Request {
     ReadSpecified(u8, Bus),
@@ -126,6 +125,7 @@ impl Request {
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Bus {
     OneWire,
+    I2C,
     Custom(u8),
 }
 
@@ -133,6 +133,7 @@ impl Bus {
     pub fn write(&self, writer: &mut Write) -> Result<usize, Error> {
         Ok(match self {
             &Bus::OneWire => writer.write_u8(0x00)?,
+            &Bus::I2C => writer.write_u8(0x01)?,
             &Bus::Custom(id) => writer.write_u8(0xFF)? + writer.write_u8(id)?,
         })
     }
@@ -140,6 +141,7 @@ impl Bus {
     pub fn read(reader: &mut Read) -> Result<Bus, Error> {
         Ok(match reader.read_u8()? {
             0x00 => Bus::OneWire,
+            0x01 => Bus::I2C,
             0xFF => Bus::Custom(reader.read_u8()?),
             _ => return Err(Error::UnknownTypeIdentifier),
         })
