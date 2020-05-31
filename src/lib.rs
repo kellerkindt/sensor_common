@@ -39,62 +39,44 @@ impl Request {
         }
     }
 
-    pub fn write(&self, writer: &mut Write) -> Result<usize, Error> {
+    pub fn write(&self, writer: &mut impl Write) -> Result<usize, Error> {
         Ok(match *self {
             Request::ReadSpecified(id, bus) => {
-                writer.write_u8(0x00)?
-                    + writer.write_u8(id)?
-                    + bus.write(writer)?
-            },
-            Request::ReadAll(id) => {
-                writer.write_u8(0x01)?
-                    + writer.write_u8(id)?
-            },
+                writer.write_u8(0x00)? + writer.write_u8(id)? + bus.write(writer)?
+            }
+            Request::ReadAll(id) => writer.write_u8(0x01)? + writer.write_u8(id)?,
             Request::ReadAllOnBus(id, bus) => {
-                writer.write_u8(0x02)?
-                    + writer.write_u8(id)?
-                    + bus.write(writer)?
-            },
-            Request::DiscoverAll(id) => {
-                writer.write_u8(0x10)?
-                    + writer.write_u8(id)?
-            },
+                writer.write_u8(0x02)? + writer.write_u8(id)? + bus.write(writer)?
+            }
+            Request::DiscoverAll(id) => writer.write_u8(0x10)? + writer.write_u8(id)?,
             Request::DiscoverAllOnBus(id, bus) => {
-                writer.write_u8(0x11)?
-                    + writer.write_u8(id)?
-                    + bus.write(writer)?
-            },
-
+                writer.write_u8(0x11)? + writer.write_u8(id)? + bus.write(writer)?
+            }
 
             Request::SetNetworkMac(id, mac) => {
-                writer.write_u8(0xA0)?
-                    + writer.write_u8(id)?
-                    + writer.write_all(&mac)?
-            },
+                writer.write_u8(0xA0)? + writer.write_u8(id)? + writer.write_all(&mac)?
+            }
             Request::SetNetworkIpSubnetGateway(id, ip, subnet, gateway) => {
                 writer.write_u8(0xA1)?
                     + writer.write_u8(id)?
                     + writer.write_all(&ip)?
                     + writer.write_all(&subnet)?
                     + writer.write_all(&gateway)?
-            },
+            }
 
             Request::RetrieveDeviceInformation(id) => {
-                writer.write_u8(0xFD)?
-                    + writer.write_u8(id)?
-            },
+                writer.write_u8(0xFD)? + writer.write_u8(id)?
+            }
             Request::RetrieveNetworkConfiguration(id) => {
-                writer.write_u8(0xFE)?
-                    + writer.write_u8(id)?
-            },
+                writer.write_u8(0xFE)? + writer.write_u8(id)?
+            }
             Request::RetrieveVersionInformation(id) => {
-                writer.write_u8(0xFF)?
-                    + writer.write_u8(id)?
-            },
+                writer.write_u8(0xFF)? + writer.write_u8(id)?
+            }
         })
     }
 
-    pub fn read(reader: &mut Read) -> Result<Request, Error> {
+    pub fn read(reader: &mut impl Read) -> Result<Request, Error> {
         Ok(match reader.read_u8()? {
             0x00 => Request::ReadSpecified(reader.read_u8()?, Bus::read(reader)?),
             0x01 => Request::ReadAll(reader.read_u8()?),
@@ -102,22 +84,43 @@ impl Request {
             0x10 => Request::DiscoverAll(reader.read_u8()?),
             0x11 => Request::DiscoverAllOnBus(reader.read_u8()?, Bus::read(reader)?),
 
-            0xA0 => Request::SetNetworkMac(reader.read_u8()?, [
-                reader.read_u8()?, reader.read_u8()?, reader.read_u8()?,
-                reader.read_u8()?, reader.read_u8()?, reader.read_u8()?,
-            ]),
-            0xA1 => Request::SetNetworkIpSubnetGateway(reader.read_u8()?, [
-               reader.read_u8()?, reader.read_u8()?, reader.read_u8()?, reader.read_u8()?,
-            ], [
-                reader.read_u8()?, reader.read_u8()?, reader.read_u8()?, reader.read_u8()?,
-            ], [
-                reader.read_u8()?, reader.read_u8()?, reader.read_u8()?, reader.read_u8()?,
-            ]),
+            0xA0 => Request::SetNetworkMac(
+                reader.read_u8()?,
+                [
+                    reader.read_u8()?,
+                    reader.read_u8()?,
+                    reader.read_u8()?,
+                    reader.read_u8()?,
+                    reader.read_u8()?,
+                    reader.read_u8()?,
+                ],
+            ),
+            0xA1 => Request::SetNetworkIpSubnetGateway(
+                reader.read_u8()?,
+                [
+                    reader.read_u8()?,
+                    reader.read_u8()?,
+                    reader.read_u8()?,
+                    reader.read_u8()?,
+                ],
+                [
+                    reader.read_u8()?,
+                    reader.read_u8()?,
+                    reader.read_u8()?,
+                    reader.read_u8()?,
+                ],
+                [
+                    reader.read_u8()?,
+                    reader.read_u8()?,
+                    reader.read_u8()?,
+                    reader.read_u8()?,
+                ],
+            ),
 
             0xFD => Request::RetrieveDeviceInformation(reader.read_u8()?),
             0xFE => Request::RetrieveNetworkConfiguration(reader.read_u8()?),
             0xFF => Request::RetrieveVersionInformation(reader.read_u8()?),
-            _ => return Err(Error::UnknownTypeIdentifier)
+            _ => return Err(Error::UnknownTypeIdentifier),
         })
     }
 }
@@ -130,7 +133,7 @@ pub enum Bus {
 }
 
 impl Bus {
-    pub fn write(&self, writer: &mut Write) -> Result<usize, Error> {
+    pub fn write(&self, writer: &mut impl Write) -> Result<usize, Error> {
         Ok(match self {
             &Bus::OneWire => writer.write_u8(0x00)?,
             &Bus::I2C => writer.write_u8(0x01)?,
@@ -138,7 +141,7 @@ impl Bus {
         })
     }
 
-    pub fn read(reader: &mut Read) -> Result<Bus, Error> {
+    pub fn read(reader: &mut impl Read) -> Result<Bus, Error> {
         Ok(match reader.read_u8()? {
             0x00 => Bus::OneWire,
             0x01 => Bus::I2C,
@@ -164,30 +167,22 @@ impl Response {
         }
     }
 
-    pub fn write(&self, writer: &mut Write) -> Result<usize, Error> {
+    pub fn write(&self, writer: &mut impl Write) -> Result<usize, Error> {
         Ok(match self {
-            &Response::NotImplemented(id) => {
-                writer.write_u8(0xF0)?
-                    + writer.write_u8(id)?
-            },
-            &Response::NotAvailable(id) => {
-                writer.write_u8(0xF1)?
-                    + writer.write_u8(id)?
-            },
+            &Response::NotImplemented(id) => writer.write_u8(0xF0)? + writer.write_u8(id)?,
+            &Response::NotAvailable(id) => writer.write_u8(0xF1)? + writer.write_u8(id)?,
             &Response::Ok(id, format) => {
-                writer.write_u8(0x00)?
-                    + writer.write_u8(id)?
-                    + format.write(writer)?
-            },
+                writer.write_u8(0x00)? + writer.write_u8(id)? + format.write(writer)?
+            }
         })
     }
 
-    pub fn read(reader: &mut Read) -> Result<Response, Error> {
+    pub fn read(reader: &mut impl Read) -> Result<Response, Error> {
         Ok(match reader.read_u8()? {
             0xF0 => Response::NotImplemented(reader.read_u8()?),
             0xF1 => Response::NotAvailable(reader.read_u8()?),
             0x00 => Response::Ok(reader.read_u8()?, Format::read(reader)?),
-            _ => return Err(Error::UnknownTypeIdentifier)
+            _ => return Err(Error::UnknownTypeIdentifier),
         })
     }
 }
@@ -197,42 +192,31 @@ pub enum Format {
     Empty,
     ValueOnly(Type),
     AddressOnly(Type),
-    AddressValuePairs(Type, Type)
+    AddressValuePairs(Type, Type),
 }
 
 impl Format {
-    pub fn write(&self, writer: &mut Write) -> Result<usize, Error> {
+    pub fn write(&self, writer: &mut impl Write) -> Result<usize, Error> {
         Ok(match self {
-            &Format::ValueOnly(t) => {
-                writer.write_u8(0x00)?
-                    + t.write(writer)?
-            },
-            &Format::AddressOnly(t) => {
-                writer.write_u8(0x01)?
-                    + t.write(writer)?
-            },
+            &Format::ValueOnly(t) => writer.write_u8(0x00)? + t.write(writer)?,
+            &Format::AddressOnly(t) => writer.write_u8(0x01)? + t.write(writer)?,
             &Format::AddressValuePairs(t1, t2) => {
-                writer.write_u8(0x02)?
-                    + t1.write(writer)?
-                    + t2.write(writer)?
-            },
-            &Format::Empty => {
-                writer.write_u8(0xFF)?
-            },
+                writer.write_u8(0x02)? + t1.write(writer)? + t2.write(writer)?
+            }
+            &Format::Empty => writer.write_u8(0xFF)?,
         })
     }
 
-    pub fn read(reader: &mut Read) -> Result<Format, Error> {
+    pub fn read(reader: &mut impl Read) -> Result<Format, Error> {
         Ok(match reader.read_u8()? {
             0x00 => Format::ValueOnly(Type::read(reader)?),
             0x01 => Format::AddressOnly(Type::read(reader)?),
             0x02 => Format::AddressValuePairs(Type::read(reader)?, Type::read(reader)?),
             0xFF => Format::Empty,
-            _ => return Err(Error::UnknownTypeIdentifier)
+            _ => return Err(Error::UnknownTypeIdentifier),
         })
     }
 }
-
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Type {
@@ -242,26 +226,20 @@ pub enum Type {
 }
 
 impl Type {
-    pub fn write(&self, writer: &mut Write) -> Result<usize, Error> {
+    pub fn write(&self, writer: &mut impl Write) -> Result<usize, Error> {
         Ok(match self {
             &Type::F32 => writer.write_u8(0x00)?,
-            &Type::Bytes(size) => {
-                writer.write_u8(0x01)?
-                    + writer.write_u8(size)?
-            },
-            &Type::String(size) => {
-                writer.write_u8(0x02)?
-                    + writer.write_u8(size)?
-            }
+            &Type::Bytes(size) => writer.write_u8(0x01)? + writer.write_u8(size)?,
+            &Type::String(size) => writer.write_u8(0x02)? + writer.write_u8(size)?,
         })
     }
 
-    pub fn read(reader: &mut Read) -> Result<Type, Error> {
+    pub fn read(reader: &mut impl Read) -> Result<Type, Error> {
         Ok(match reader.read_u8()? {
             0x00 => Type::F32,
             0x01 => Type::Bytes(reader.read_u8()?),
             0x02 => Type::String(reader.read_u8()?),
-            _ => return Err(Error::UnknownTypeIdentifier)
+            _ => return Err(Error::UnknownTypeIdentifier),
         })
     }
 }
