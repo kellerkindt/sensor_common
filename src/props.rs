@@ -42,9 +42,9 @@ impl CpuComponent {
 pub enum PlatformComponent {}
 
 pub struct ModuleId {
-    group: u8,
-    id: u8,
-    ext: u8,
+    pub group: u8,
+    pub id: u8,
+    pub ext: u8,
 }
 
 pub enum ModuleComponent<'a> {
