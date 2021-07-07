@@ -1,5 +1,10 @@
 #![no_std]
 
+#[macro_use]
+extern crate num_enum;
+
+pub mod props;
+
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Error {
     BufferToSmall,
@@ -15,29 +20,36 @@ pub enum Request {
     DiscoverAll(u8),
     DiscoverAllOnBus(u8, Bus),
 
+    SetNetworkMac(u8, [u8; 6]),
+    SetNetworkIpSubnetGateway(u8, [u8; 4], [u8; 4], [u8; 4]),
+
+    ListComponents(u8),
+    ListComponentsAndNames(u8),
+
+    RetrieveProperty(u8, u8),
     RetrieveErrorDump(u8),
     RetrieveDeviceInformation(u8),
     RetrieveNetworkConfiguration(u8),
     RetrieveVersionInformation(u8),
-
-    SetNetworkMac(u8, [u8; 6]),
-    SetNetworkIpSubnetGateway(u8, [u8; 4], [u8; 4], [u8; 4]),
 }
 
 impl Request {
     pub fn id(&self) -> u8 {
         match self {
-            &Request::ReadSpecified(id, _) => id,
-            &Request::ReadAll(id) => id,
-            &Request::ReadAllOnBus(id, _) => id,
-            &Request::DiscoverAll(id) => id,
-            &Request::DiscoverAllOnBus(id, _) => id,
-            &Request::RetrieveErrorDump(id) => id,
-            &Request::RetrieveDeviceInformation(id) => id,
-            &Request::RetrieveNetworkConfiguration(id) => id,
-            &Request::RetrieveVersionInformation(id) => id,
-            &Request::SetNetworkMac(id, _) => id,
-            &Request::SetNetworkIpSubnetGateway(id, _, _, _) => id,
+            Request::ReadSpecified(id, _) => *id,
+            Request::ReadAll(id) => *id,
+            Request::ReadAllOnBus(id, _) => *id,
+            Request::DiscoverAll(id) => *id,
+            Request::DiscoverAllOnBus(id, _) => *id,
+            Request::SetNetworkMac(id, _) => *id,
+            Request::SetNetworkIpSubnetGateway(id, _, _, _) => *id,
+            Request::ListComponents(id) => *id,
+            Request::ListComponentsAndNames(id) => *id,
+            Request::RetrieveProperty(id, _) => *id,
+            Request::RetrieveErrorDump(id) => *id,
+            Request::RetrieveDeviceInformation(id) => *id,
+            Request::RetrieveNetworkConfiguration(id) => *id,
+            Request::RetrieveVersionInformation(id) => *id,
         }
     }
 
@@ -64,6 +76,13 @@ impl Request {
                     + writer.write_all(&ip)?
                     + writer.write_all(&subnet)?
                     + writer.write_all(&gateway)?
+            }
+
+            Request::ListComponents(id) => writer.write_u8(0xD0)? + writer.write_u8(id)?,
+            Request::ListComponentsAndNames(id) => writer.write_u8(0xD1)? + writer.write_u8(id)?,
+
+            Request::RetrieveProperty(id, len) => {
+                writer.write_u8(0xFB)? + writer.write_u8(id)? + writer.write_u8(len)?
             }
 
             Request::RetrieveErrorDump(id) => writer.write_u8(0xFC)? + writer.write_u8(id)?,
@@ -120,6 +139,10 @@ impl Request {
                 ],
             ),
 
+            0xD0 => Request::ListComponents(reader.read_u8()?),
+            0xD1 => Request::ListComponentsAndNames(reader.read_u8()?),
+
+            0xFB => Request::RetrieveProperty(reader.read_u8()?, reader.read_u8()?),
             0xFC => Request::RetrieveErrorDump(reader.read_u8()?),
             0xFD => Request::RetrieveDeviceInformation(reader.read_u8()?),
             0xFE => Request::RetrieveNetworkConfiguration(reader.read_u8()?),
@@ -227,6 +250,20 @@ pub enum Type {
     F32,
     Bytes(u8),
     String(u8),
+    PropertyId,
+    DynString,
+    DynBytes,
+
+    U128,
+    I128,
+    U64,
+    I64,
+    U32,
+    I32,
+    U16,
+    I16,
+    U8,
+    I8,
 }
 
 impl Type {
@@ -235,6 +272,20 @@ impl Type {
             &Type::F32 => writer.write_u8(0x00)?,
             &Type::Bytes(size) => writer.write_u8(0x01)? + writer.write_u8(size)?,
             &Type::String(size) => writer.write_u8(0x02)? + writer.write_u8(size)?,
+            &Type::PropertyId => writer.write_u8(0x03)?,
+            &Type::DynString => writer.write_u8(0x04)?,
+            &Type::DynBytes => writer.write_u8(0x05)?,
+
+            &Type::U128 => writer.write_u8(0xF6)?,
+            &Type::I128 => writer.write_u8(0xF7)?,
+            &Type::U64 => writer.write_u8(0xF8)?,
+            &Type::I64 => writer.write_u8(0xF9)?,
+            &Type::U32 => writer.write_u8(0xFA)?,
+            &Type::I32 => writer.write_u8(0xFB)?,
+            &Type::U16 => writer.write_u8(0xFC)?,
+            &Type::I16 => writer.write_u8(0xFD)?,
+            &Type::U8 => writer.write_u8(0xFE)?,
+            &Type::I8 => writer.write_u8(0xFF)?,
         })
     }
 
@@ -243,6 +294,20 @@ impl Type {
             0x00 => Type::F32,
             0x01 => Type::Bytes(reader.read_u8()?),
             0x02 => Type::String(reader.read_u8()?),
+            0x03 => Type::PropertyId,
+            0x04 => Type::DynString,
+
+            0xF6 => Type::U128,
+            0xF7 => Type::I128,
+            0xF8 => Type::U64,
+            0xF9 => Type::I64,
+            0xFA => Type::U32,
+            0xFB => Type::I32,
+            0xFC => Type::U16,
+            0xFD => Type::I16,
+            0xFE => Type::U8,
+            0xFF => Type::I8,
+
             _ => return Err(Error::UnknownTypeIdentifier),
         })
     }
@@ -250,6 +315,18 @@ impl Type {
 
 pub trait Read {
     fn read_u8(&mut self) -> Result<u8, Error>;
+
+    fn read_all(&mut self, destination: &mut [u8]) -> Result<u8, Error> {
+        let len = destination.len().min(u8::MAX as usize) as u8;
+        if self.available() < usize::from(len) {
+            Err(Error::UnexpectedEOF)
+        } else {
+            for i in 0..usize::from(len) {
+                destination[i] = self.read_u8()?;
+            }
+            Ok(len)
+        }
+    }
 
     fn available(&self) -> usize;
 }
