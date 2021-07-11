@@ -1,4 +1,4 @@
-#![no_std]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 #[macro_use]
 extern crate num_enum;
@@ -24,7 +24,7 @@ pub enum Request {
     SetNetworkIpSubnetGateway(u8, [u8; 4], [u8; 4], [u8; 4]),
 
     ListComponents(u8),
-    ListComponentsAndNames(u8),
+    ListComponentsWithReportV1(u8),
 
     RetrieveProperty(u8, u8),
     RetrieveErrorDump(u8),
@@ -44,7 +44,7 @@ impl Request {
             Request::SetNetworkMac(id, _) => *id,
             Request::SetNetworkIpSubnetGateway(id, _, _, _) => *id,
             Request::ListComponents(id) => *id,
-            Request::ListComponentsAndNames(id) => *id,
+            Request::ListComponentsWithReportV1(id) => *id,
             Request::RetrieveProperty(id, _) => *id,
             Request::RetrieveErrorDump(id) => *id,
             Request::RetrieveDeviceInformation(id) => *id,
@@ -79,7 +79,9 @@ impl Request {
             }
 
             Request::ListComponents(id) => writer.write_u8(0xD0)? + writer.write_u8(id)?,
-            Request::ListComponentsAndNames(id) => writer.write_u8(0xD1)? + writer.write_u8(id)?,
+            Request::ListComponentsWithReportV1(id) => {
+                writer.write_u8(0xD1)? + writer.write_u8(id)?
+            }
 
             Request::RetrieveProperty(id, len) => {
                 writer.write_u8(0xFB)? + writer.write_u8(id)? + writer.write_u8(len)?
@@ -140,7 +142,7 @@ impl Request {
             ),
 
             0xD0 => Request::ListComponents(reader.read_u8()?),
-            0xD1 => Request::ListComponentsAndNames(reader.read_u8()?),
+            0xD1 => Request::ListComponentsWithReportV1(reader.read_u8()?),
 
             0xFB => Request::RetrieveProperty(reader.read_u8()?, reader.read_u8()?),
             0xFC => Request::RetrieveErrorDump(reader.read_u8()?),
@@ -254,6 +256,8 @@ pub enum Type {
     DynString,
     DynBytes,
 
+    DynListPropertyReportV1,
+
     U128,
     I128,
     U64,
@@ -267,7 +271,7 @@ pub enum Type {
 }
 
 impl Type {
-    pub fn write(&self, writer: &mut impl Write) -> Result<usize, Error> {
+    pub fn write(&self, writer: &mut dyn Write) -> Result<usize, Error> {
         Ok(match self {
             &Type::F32 => writer.write_u8(0x00)?,
             &Type::Bytes(size) => writer.write_u8(0x01)? + writer.write_u8(size)?,
@@ -275,6 +279,8 @@ impl Type {
             &Type::PropertyId => writer.write_u8(0x03)?,
             &Type::DynString => writer.write_u8(0x04)?,
             &Type::DynBytes => writer.write_u8(0x05)?,
+
+            &Type::DynListPropertyReportV1 => writer.write_u8(0xC0)?,
 
             &Type::U128 => writer.write_u8(0xF6)?,
             &Type::I128 => writer.write_u8(0xF7)?,
@@ -289,13 +295,15 @@ impl Type {
         })
     }
 
-    pub fn read(reader: &mut impl Read) -> Result<Type, Error> {
+    pub fn read(reader: &mut dyn Read) -> Result<Type, Error> {
         Ok(match reader.read_u8()? {
             0x00 => Type::F32,
             0x01 => Type::Bytes(reader.read_u8()?),
             0x02 => Type::String(reader.read_u8()?),
             0x03 => Type::PropertyId,
             0x04 => Type::DynString,
+
+            0xC0 => Type::DynListPropertyReportV1,
 
             0xF6 => Type::U128,
             0xF7 => Type::I128,

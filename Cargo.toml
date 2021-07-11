@@ -9,6 +9,9 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/kellerkindt/sensor_common"
 edition = "2018"
 
+[features]
+default = []
+std = []
 
 [dependencies]
 num_enum = { version = "0.5.1", default-features = false }
