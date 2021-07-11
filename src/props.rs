@@ -42,7 +42,39 @@ impl CpuComponent {
     }
 }
 
-pub enum PlatformComponent {}
+pub enum PlatformComponent {
+    Meta = 0x00,
+    EeeProm = 0x10,
+    Network = 0x11,
+    Temperature = 0x12,
+    Sntp = 0x13,
+}
+
+pub enum MetaInformation {
+    Version = 0x00,
+    // Module = 0x10,
+}
+
+pub enum EeePromComponent {
+    MagicCrcStart = 0x10,
+}
+
+pub enum NetworkComponent {
+    Mac = 0x10,
+    Ip = 0x11,
+    Subnet = 0x12,
+    Gateway = 0x13,
+}
+
+pub enum TemperatureComponent {
+    Value = 0x00,
+}
+
+pub enum SntpComponent {
+    CurrentTimeMillis = 0x00,
+    LastOffsetMillis = 0x01,
+    LastUpdateMillis = 0x02,
+}
 
 pub struct ModuleId {
     pub group: u8,
