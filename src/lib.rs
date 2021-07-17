@@ -12,6 +12,16 @@ pub enum Error {
     UnknownTypeIdentifier,
 }
 
+#[cfg(feature = "std")]
+impl std::error::Error for Error {}
+
+#[cfg(feature = "std")]
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Request {
     ReadSpecified(u8, Bus),
