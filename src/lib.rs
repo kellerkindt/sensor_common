@@ -174,9 +174,9 @@ pub enum Bus {
 impl Bus {
     pub fn write(&self, writer: &mut impl Write) -> Result<usize, Error> {
         Ok(match self {
-            &Bus::OneWire => writer.write_u8(0x00)?,
-            &Bus::I2C => writer.write_u8(0x01)?,
-            &Bus::Custom(id) => writer.write_u8(0xFF)? + writer.write_u8(id)?,
+            Bus::OneWire => writer.write_u8(0x00)?,
+            Bus::I2C => writer.write_u8(0x01)?,
+            Bus::Custom(id) => writer.write_u8(0xFF)? + writer.write_u8(*id)?,
         })
     }
 
@@ -208,10 +208,10 @@ impl Response {
 
     pub fn write(&self, writer: &mut impl Write) -> Result<usize, Error> {
         Ok(match self {
-            &Response::NotImplemented(id) => writer.write_u8(0xF0)? + writer.write_u8(id)?,
-            &Response::NotAvailable(id) => writer.write_u8(0xF1)? + writer.write_u8(id)?,
-            &Response::Ok(id, format) => {
-                writer.write_u8(0x00)? + writer.write_u8(id)? + format.write(writer)?
+            Response::NotImplemented(id) => writer.write_u8(0xF0)? + writer.write_u8(*id)?,
+            Response::NotAvailable(id) => writer.write_u8(0xF1)? + writer.write_u8(*id)?,
+            Response::Ok(id, format) => {
+                writer.write_u8(0x00)? + writer.write_u8(*id)? + format.write(writer)?
             }
         })
     }
@@ -237,12 +237,12 @@ pub enum Format {
 impl Format {
     pub fn write(&self, writer: &mut impl Write) -> Result<usize, Error> {
         Ok(match self {
-            &Format::ValueOnly(t) => writer.write_u8(0x00)? + t.write(writer)?,
-            &Format::AddressOnly(t) => writer.write_u8(0x01)? + t.write(writer)?,
-            &Format::AddressValuePairs(t1, t2) => {
+            Format::ValueOnly(t) => writer.write_u8(0x00)? + t.write(writer)?,
+            Format::AddressOnly(t) => writer.write_u8(0x01)? + t.write(writer)?,
+            Format::AddressValuePairs(t1, t2) => {
                 writer.write_u8(0x02)? + t1.write(writer)? + t2.write(writer)?
             }
-            &Format::Empty => writer.write_u8(0xFF)?,
+            Format::Empty => writer.write_u8(0xFF)?,
         })
     }
 
@@ -283,25 +283,25 @@ pub enum Type {
 impl Type {
     pub fn write(&self, writer: &mut dyn Write) -> Result<usize, Error> {
         Ok(match self {
-            &Type::F32 => writer.write_u8(0x00)?,
-            &Type::Bytes(size) => writer.write_u8(0x01)? + writer.write_u8(size)?,
-            &Type::String(size) => writer.write_u8(0x02)? + writer.write_u8(size)?,
-            &Type::PropertyId => writer.write_u8(0x03)?,
-            &Type::DynString => writer.write_u8(0x04)?,
-            &Type::DynBytes => writer.write_u8(0x05)?,
+            Type::F32 => writer.write_u8(0x00)?,
+            Type::Bytes(size) => writer.write_u8(0x01)? + writer.write_u8(*size)?,
+            Type::String(size) => writer.write_u8(0x02)? + writer.write_u8(*size)?,
+            Type::PropertyId => writer.write_u8(0x03)?,
+            Type::DynString => writer.write_u8(0x04)?,
+            Type::DynBytes => writer.write_u8(0x05)?,
 
-            &Type::DynListPropertyReportV1 => writer.write_u8(0xC0)?,
+            Type::DynListPropertyReportV1 => writer.write_u8(0xC0)?,
 
-            &Type::U128 => writer.write_u8(0xF6)?,
-            &Type::I128 => writer.write_u8(0xF7)?,
-            &Type::U64 => writer.write_u8(0xF8)?,
-            &Type::I64 => writer.write_u8(0xF9)?,
-            &Type::U32 => writer.write_u8(0xFA)?,
-            &Type::I32 => writer.write_u8(0xFB)?,
-            &Type::U16 => writer.write_u8(0xFC)?,
-            &Type::I16 => writer.write_u8(0xFD)?,
-            &Type::U8 => writer.write_u8(0xFE)?,
-            &Type::I8 => writer.write_u8(0xFF)?,
+            Type::U128 => writer.write_u8(0xF6)?,
+            Type::I128 => writer.write_u8(0xF7)?,
+            Type::U64 => writer.write_u8(0xF8)?,
+            Type::I64 => writer.write_u8(0xF9)?,
+            Type::U32 => writer.write_u8(0xFA)?,
+            Type::I32 => writer.write_u8(0xFB)?,
+            Type::U16 => writer.write_u8(0xFC)?,
+            Type::I16 => writer.write_u8(0xFD)?,
+            Type::U8 => writer.write_u8(0xFE)?,
+            Type::I8 => writer.write_u8(0xFF)?,
         })
     }
 
@@ -339,8 +339,8 @@ pub trait Read {
         if self.available() < usize::from(len) {
             Err(Error::UnexpectedEOF)
         } else {
-            for i in 0..usize::from(len) {
-                destination[i] = self.read_u8()?;
+            for destination in destination.iter_mut().take(usize::from(len)) {
+                *destination = self.read_u8()?;
             }
             Ok(len)
         }
@@ -351,7 +351,7 @@ pub trait Read {
 
 impl<'a> Read for &'a [u8] {
     fn read_u8(&mut self) -> Result<u8, Error> {
-        if self.len() < 1 {
+        if self.is_empty() {
             Err(Error::UnexpectedEOF)
         } else {
             let (a, b) = self.split_at(1);
@@ -383,7 +383,7 @@ pub trait Write {
 
 impl<'a> Write for &'a mut [u8] {
     fn write_u8(&mut self, value: u8) -> Result<usize, Error> {
-        if self.len() < 1 {
+        if self.is_empty() {
             Err(Error::BufferToSmall)
         } else {
             let (a, b) = ::core::mem::replace(self, &mut []).split_at_mut(1);

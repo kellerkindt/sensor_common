@@ -33,11 +33,11 @@ pub enum CpuComponent {
 }
 
 impl CpuComponent {
-    pub const fn to_cid_path(&self) -> [u8; 3] {
+    pub const fn to_cid_path(self) -> [u8; 3] {
         [
             ComponentRoot::Device as u8,
             DeviceComponent::Cpu as u8,
-            *self as u8,
+            self as u8,
         ]
     }
 }
@@ -175,13 +175,16 @@ impl QueryComplexity {
     }
 }
 
+pub type ReadFn<P, T> = fn(&mut P, &mut T, &mut dyn Write) -> Result<usize, Error>;
+pub type WriteFn<P, T> = fn(&mut P, &mut T, &mut dyn Read) -> Result<usize, Error>;
+
 pub struct Property<P, T> {
     pub id: &'static [u8],
     pub type_hint: Option<Type>,
     pub description: Option<&'static str>,
     pub complexity: QueryComplexity,
-    pub read: Option<fn(&mut P, &mut T, &mut dyn Write) -> Result<usize, Error>>,
-    pub write: Option<fn(&mut P, &mut T, &mut dyn Read) -> Result<usize, Error>>,
+    pub read: Option<ReadFn<P, T>>,
+    pub write: Option<WriteFn<P, T>>,
 }
 
 #[derive(Debug)]
