@@ -396,3 +396,20 @@ impl<'a> Write for &'a mut [u8] {
         self.len()
     }
 }
+
+#[cfg(feature = "std")]
+impl Write for Vec<u8> {
+    fn write_u8(&mut self, value: u8) -> Result<usize, Error> {
+        self.push(value);
+        Ok(1)
+    }
+
+    fn available(&self) -> usize {
+        usize::MAX - self.len()
+    }
+
+    fn write_all(&mut self, bytes: &[u8]) -> Result<usize, Error> {
+        self.extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+}
