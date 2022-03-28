@@ -3,6 +3,8 @@
 #[macro_use]
 extern crate num_enum;
 
+#[cfg(feature = "std")]
+pub mod client;
 pub mod props;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
