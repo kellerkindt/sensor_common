@@ -314,6 +314,7 @@ impl Type {
             0x02 => Type::String(reader.read_u8()?),
             0x03 => Type::PropertyId,
             0x04 => Type::DynString,
+            0x05 => Type::DynBytes,
 
             0xC0 => Type::DynListPropertyReportV1,
 
