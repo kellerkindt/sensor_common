@@ -2,7 +2,6 @@ use crate::{Format, Read, Type};
 use random::Source;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::num::NonZeroU8;
-use std::str::FromStr;
 use std::time::Duration;
 
 #[derive(Debug, Clone, derive_builder::Builder)]

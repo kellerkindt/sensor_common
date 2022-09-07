@@ -1,6 +1,8 @@
 use crate::{Error, Read, Type, Write};
 use core::num::NonZeroU16;
 
+pub mod handling;
+
 #[repr(u8)]
 #[derive(Copy, Clone, TryFromPrimitive)]
 pub enum ComponentRoot {
@@ -204,7 +206,6 @@ pub struct PropertyReportV1 {
 }
 
 impl PropertyReportV1 {
-    #[cfg(not(feature = "std"))]
     pub fn write(&self, writer: &mut dyn Write) -> Result<usize, Error> {
         let id_len = self.id.len().min(u8::MAX as usize);
         Ok(writer.write_u8(id_len as u8)?
@@ -212,7 +213,6 @@ impl PropertyReportV1 {
             + self.write_no_id(writer)?)
     }
 
-    #[cfg(not(feature = "std"))]
     pub fn write_no_id(&self, writer: &mut dyn Write) -> Result<usize, Error> {
         let header = 0x00u8
             | self.type_hint.map(|_| 1u8 << 7).unwrap_or_default()
@@ -290,13 +290,12 @@ impl PropertyReportV1 {
     }
 }
 
-#[cfg(not(feature = "std"))]
 impl<P, T> From<&Property<P, T>> for PropertyReportV1 {
     fn from(property: &Property<P, T>) -> Self {
         PropertyReportV1 {
-            id: property.id,
+            id: property.id.into(),
             type_hint: property.type_hint,
-            description: property.description,
+            description: property.description.map(Into::into),
             complexity: property.complexity,
             read: property.read.is_some(),
             write: property.write.is_some(),

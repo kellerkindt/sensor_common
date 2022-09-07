@@ -12,6 +12,7 @@ pub enum Error {
     BufferToSmall,
     UnexpectedEOF,
     UnknownTypeIdentifier,
+    InvalidUtf8,
 }
 
 #[cfg(feature = "std")]
@@ -110,6 +111,17 @@ impl Request {
                 writer.write_u8(0xFF)? + writer.write_u8(id)?
             }
         })
+    }
+
+    /// Tries to perform a [`Request::read`] on the given slice. Returns the parsed [`Request`]
+    /// and the payload content (remaining data in the slice) on success.
+    pub fn read_and_split(slice: &[u8]) -> Result<(Request, &[u8]), Error> {
+        let reader = &mut &*slice;
+        let available = reader.available();
+        let request = Request::read(reader)?;
+        let split_position = available - reader.available();
+        let (_request_slice, content) = slice.split_at(split_position);
+        Ok((request, content))
     }
 
     pub fn read(reader: &mut impl Read) -> Result<Request, Error> {
@@ -350,6 +362,20 @@ pub trait Read {
     }
 
     fn available(&self) -> usize;
+
+    #[cfg(feature = "std")]
+    fn read_dyn_string(&mut self) -> Result<String, Error> {
+        self.read_dyn_bytes()
+            .and_then(|bytes| String::from_utf8(bytes).map_err(|_| Error::InvalidUtf8))
+    }
+
+    #[cfg(feature = "std")]
+    fn read_dyn_bytes(&mut self) -> Result<Vec<u8>, Error> {
+        let len = self.read_u8()?;
+        let mut bytes = vec![0x00; usize::from(len)];
+        self.read_all(&mut bytes)?;
+        Ok(bytes)
+    }
 }
 
 impl<'a> Read for &'a [u8] {
@@ -362,6 +388,7 @@ impl<'a> Read for &'a [u8] {
             Ok(a[0])
         }
     }
+
     fn available(&self) -> usize {
         self.len()
     }
@@ -371,6 +398,17 @@ pub trait Write {
     fn write_u8(&mut self, value: u8) -> Result<usize, Error>;
 
     fn available(&self) -> usize;
+
+    #[inline]
+    fn write_dyn_string(&mut self, string: &str) -> Result<usize, Error> {
+        self.write_dyn_bytes(string.as_bytes())
+    }
+
+    #[inline]
+    fn write_dyn_bytes(&mut self, bytes: &[u8]) -> Result<usize, Error> {
+        let len = bytes.len().min(u8::MAX as usize);
+        Ok(self.write_u8(len as u8)? + self.write_all(&bytes[..len])?)
+    }
 
     fn write_all(&mut self, bytes: &[u8]) -> Result<usize, Error> {
         if self.available() < bytes.len() {
