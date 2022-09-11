@@ -3,6 +3,56 @@ use core::num::NonZeroU16;
 
 pub mod handling;
 
+#[macro_export]
+macro_rules! property_read_fn {
+    (|$platform:ident: &mut $platformTy:ty, $module:ident: &mut $moduleTy:ty, $write:ident| $body:expr) => {{
+        Some(
+            |$platform: &mut $platformTy,
+             $module: &mut $moduleTy,
+             $write: &mut dyn $crate::Write|
+             -> Result<usize, $crate::Error> {
+                {
+                    let _ = &($platform);
+                    let _ = &($module);
+                    let _ = &($write);
+                };
+                $body
+            },
+        )
+    }};
+    (|$platform:ident, $module:ident: &mut $moduleTy:ty, $write:ident| $body:expr) => {
+        property_read_fn! { |$platform: &mut _, $module: &mut $moduleTy, $write| $body }
+    };
+    (|$platform:ident, $write:ident| $body:expr) => {
+        property_read_fn! { |$platform: &mut _, _t: &mut (), $write| $body }
+    };
+}
+
+#[macro_export]
+macro_rules! property_write_fn {
+    (|$platform:ident: &mut $platformTy:ty, $module:ident: &mut $moduleTy:ty, $read:ident| $body:expr) => {{
+        Some(
+            |$platform: &mut $platformTy,
+             $module: &mut $moduleTy,
+             $read: &mut dyn $crate::Read|
+             -> Result<usize, $crate::Error> {
+                {
+                    let _ = &($platform);
+                    let _ = &($module);
+                    let _ = &($read);
+                };
+                $body
+            },
+        )
+    }};
+    (|$platform:ident, $module:ident: &mut $moduleTy:ty, $read:ident| $body:expr) => {
+        property_write_fn! { |$platform: &mut _, $module: &mut $moduleTy, $read| $body }
+    };
+    (|$platform:ident, $read:ident| $body:expr) => {
+        property_write_fn! { |$platform, _t: &mut (), $read| $body }
+    };
+}
+
 #[repr(u8)]
 #[derive(Copy, Clone, TryFromPrimitive)]
 pub enum ComponentRoot {
